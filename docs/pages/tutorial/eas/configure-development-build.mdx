@@ -1,206 +1,180 @@
----
-title: Configure a development build in cloud
-sidebar_title: Configure development build
-description: Learn how to configure a development build for a project using EAS Build.
-hasVideoLink: true
----
+// App.tsx
+import React, { useMemo, useState } from 'react';
+import {
+  SafeAreaView, View, Text, TextInput, FlatList, Image, TouchableOpacity, Dimensions, StatusBar,
+} from 'react-native';
 
-import { Collapsible } from '~/ui/components/Collapsible';
-import { ContentSpotlight } from '~/ui/components/ContentSpotlight';
-import { ProgressTracker } from '~/ui/components/ProgressTracker';
-import { Terminal } from '~/ui/components/Snippet';
-import { Step } from '~/ui/components/Step';
-import { CODE } from '~/ui/components/Text';
-import { VideoBoxLink } from '~/ui/components/VideoBoxLink';
+type Estado = 'Diagnóstico' | 'Execução' | 'Concluído';
+type Veiculo = {
+  id: string;
+  matricula: string;
+  modelo: string;
+  estado: Estado;
+  valor: number;
+  promessaData: string; // ex "26/05/2023" ou "hoje"
+  promessaHora: string; // ex "18:00"
+  imagem?: string;
+  badge?: 'NOVO' | 'NA' | null;
+};
 
-In this chapter, we'll set up and configure a development build with EAS for our example app.
+const C = {
+  bg: '#F3F6FA',
+  card: '#FFFFFF',
+  text: '#101828',
+  muted: '#6B7280',
+  border: '#E5E7EB',
+  azulValor: '#0EA5E9',
+  barraDiag: '#E85D75',
+  barraExec: '#2CBFAE',
+  barraConc: '#6ABF69',
+  tabOn: '#16A34A',
+};
 
-<VideoBoxLink videoId="uQCE9zl3dXU" title="Watch: How to configure a development build" />
+const MOCK: Veiculo[] = [
+  { id: '1', matricula: '66-15-EA', modelo: 'RANGE ROVER I', estado: 'Diagnóstico', valor: 655.5, promessaData: '26/05/2023', promessaHora: '18:00', badge: 'NA' },
+  { id: '2', matricula: 'PM-49-90', modelo: 'XJ6 4.2 Series 2', estado: 'Diagnóstico', valor: 3525.3, promessaData: '30/05/2023', promessaHora: '18:00', badge: 'NOVO' },
+  { id: '3', matricula: '16-OZ-85', modelo: 'Classe E Carrinha (S212)', estado: 'Execução', valor: 1064.58, promessaData: 'hoje', promessaHora: '18:00' },
+  { id: '4', matricula: '93-OB-96', modelo: 'YARIS (_P13_) 1.5 Hybrid', estado: 'Diagnóstico', valor: 0, promessaData: 'hoje', promessaHora: '18:00' },
+  { id: '5', matricula: '30-XI-36', modelo: 'ForTwo Coupé (453)', estado: 'Execução', valor: 26.36, promessaData: '09/06/2023', promessaHora: '18:00' },
+  { id: '6', matricula: '66-15-EA', modelo: 'RANGE ROVER I', estado: 'Execução', valor: 12300.88, promessaData: '30/06/2023', promessaHora: '17:00' },
+];
 
----
+const estadoBarra = (e: Estado) => e === 'Diagnóstico' ? C.barraDiag : e === 'Execução' ? C.barraExec : C.barraConc;
 
-## Understanding development builds
+const w = Dimensions.get('window').width;
+const GAP = 12;
+const COL = (w - 16*2 - GAP) / 2;
 
-Let's start by learning about what are development builds and why we need them.
+export default function App() {
+  const [q, setQ] = useState('');
+  const [tab, setTab] = useState<'Todos' | Estado>('Todos');
 
-A [development build](/develop/development-builds/introduction/) is a debug version of our project. It is optimized for quick iterations when creating an app. It contains the [`expo-dev-client`](/versions/latest/sdk/dev-client/) library, which offers a robust and complete development environment. This setup allows us to integrate any native library or change code inside the [native directories](/workflow/overview/#android-and-ios-native-projects) as required.
+  const data = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    return MOCK.filter(v => {
+      const mt = !t || v.matricula.toLowerCase().includes(t) || v.modelo.toLowerCase().includes(t);
+      const tt = tab === 'Todos' ? true : v.estado === tab;
+      return mt && tt;
+    });
+  }, [q, tab]);
 
-### Key highlights
+  const Card = ({ v }: { v: Veiculo }) => (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={{
+        width: COL,
+        backgroundColor: C.card,
+        borderRadius: 16,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: C.border,
+        marginBottom: GAP,
+        shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+      }}
+      onPress={() => console.log('Abrir detalhes', v.matricula)}
+    >
+      {v.badge && (
+        <View style={{ position: 'absolute', top: -8, left: -8, backgroundColor: '#111827', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 }}>
+          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{v.badge}</Text>
+        </View>
+      )}
 
-> **Note:** If you are familiar with [Expo Go](/get-started/expo-go/), think of a development build as a customizable version of Expo Go that is unique to the requirements of a project.
+      <Text style={{ fontWeight: '800', color: C.text, textAlign: 'center' }}>{v.matricula}</Text>
+      <Text numberOfLines={1} style={{ color: C.muted, textAlign: 'center', marginBottom: 6 }}>{v.modelo}</Text>
 
-| Feature                           | Development Builds                                                                                                                             | Expo Go                                                                                              |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| **Development phase**             | Offers web-like iteration speed for mobile app development.                                                                                    | Allows for quick iteration and testing of Expo SDK projects using the client app.                    |
-| **Collaboration**                 | Facilitates team testing with shared native runtime.                                                                                           | Easy project sharing via QR codes on a device.                                                       |
-| **Third-party libraries support** | Full support for any [third-party library](/workflow/using-libraries/#third-party-libraries), including those that require custom native code. | Limited to libraries within the Expo SDK, not suitable for custom native dependencies.               |
-| **Customization**                 | Extensive customization with [config plugins](/config-plugins/introduction/) and direct access to native code.                                 | Limited customization with a focus on Expo SDK capabilities without direct native code modification. |
-| **Intended use**                  | Ideal for full-fledged app development aimed at store deployment, offering a complete development environment and tools.                       | Ideal for learning, prototyping, and experimenting. Not recommended for production apps.             |
+      <View style={{ height: 72, justifyContent: 'center', alignItems: 'center', marginBottom: 8 }}>
+        <Image
+          source={{ uri: v.imagem || 'https://dummyimage.com/180x80/ffffff/aaa&text=VE%C3%8DCULO' }}
+          style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+        />
+        <View style={{ position: 'absolute', right: -4, bottom: -4, backgroundColor: '#fff', borderRadius: 20, padding: 6, borderWidth: 1, borderColor: C.border }}>
+          <Text style={{ fontSize: 12 }}>ℹ️</Text>
+        </View>
+      </View>
 
-<Step label="1">
+      <View style={{ height: 6, borderRadius: 4, backgroundColor: '#E5E7EB', overflow: 'hidden' }}>
+        <View style={{ width: '100%', height: '100%', backgroundColor: estadoBarra(v.estado) }} />
+      </View>
 
-## Install expo-dev-client library
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+        <Text style={{ color: C.muted }}>{v.estado === 'Execução' ? 'Execução Serviços' : v.estado}</Text>
+        <Text style={{ color: C.azulValor, fontWeight: '800' }}>
+          {v.valor.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+        </Text>
+      </View>
 
-To initialize our project for a development build, let's [`cd`](https://developer.mozilla.org/en-US/docs/Learn/Tools_and_testing/Understanding_client-side_tools/Command_line#basic_built-in_terminal_commands) inside our project directory and run the following command to install the library:
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{ marginRight: 6 }}>📅</Text>
+          <Text style={{ color: C.muted }}>{v.promessaData}</Text>
+        </View>
+        <Text style={{ color: C.muted }}>{v.promessaHora}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 
-<Terminal cmd={['$ npx expo install expo-dev-client']} />
+  const Chip = ({ label }: { label: 'Todos' | Estado }) => {
+    const on = tab === label;
+    return (
+      <TouchableOpacity
+        onPress={() => setTab(label)}
+        style={{
+          marginRight: 8, borderRadius: 999, borderWidth: 1,
+          borderColor: on ? C.tabOn : C.border,
+          backgroundColor: on ? '#EAFBF0' : '#fff',
+          paddingVertical: 8, paddingHorizontal: 12,
+        }}
+      >
+        <Text style={{ color: on ? C.tabOn : C.muted, fontWeight: on ? '700' : '500' }}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
 
-### Start the development server
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+      <StatusBar barStyle="dark-content" />
+      <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: C.text }}>Impacto Car</Text>
+          <View style={{
+            width: 32, height: 32, borderRadius: 16, backgroundColor: '#E2E8F0',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontWeight: '700', color: '#334155' }}>IC</Text>
+          </View>
+        </View>
 
-Run the `npx expo start` to start the [development server](/get-started/start-developing/#start-a-development-server):
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: C.border, paddingHorizontal: 10,
+        }}>
+          <Text style={{ marginRight: 8 }}>🔍</Text>
+          <TextInput
+            style={{ flex: 1, paddingVertical: 10 }}
+            placeholder="Pesquisar"
+            placeholderTextColor={C.muted}
+            value={q}
+            onChangeText={setQ}
+          />
+        </View>
 
-<Terminal cmd={['$ npx expo start']} />
+        <View style={{ flexDirection: 'row', marginTop: 10 }}>
+          <Chip label="Todos" />
+          <Chip label="Diagnóstico" />
+          <Chip label="Execução" />
+          <Chip label="Concluído" />
+        </View>
+      </View>
 
-This command starts the metro bundler. In the terminal window, we see the QR code followed by the `Metro waiting on...` and a manifest URL:
-
-<ContentSpotlight
-  alt="Running development server"
-  src="/static/images/tutorial/eas/development-server.png"
-  className="max-w-[600px]"
-/>
-
-Let's notice the changes installing the `expo-dev-client` library:
-
-- The manifest URL contains `expo-development-client` along with the app scheme
-- The development server now operates for a development build (instead of Expo Go).
-
-Since we do not have a development build installed on one of our devices or an emulator/simulator, we can't run our project yet.
-
-</Step>
-
-<Step label="2">
-
-## Initialize a development build
-
-### Install EAS CLI
-
-We need to install the EAS Command Line Interface (CLI) tool as a global dependency on our local machine. Run the following command:
-
-<Terminal cmd={['$ npm install -g eas-cli']} />
-
-### Log in or sign up for an Expo account
-
-> If you have an Expo account and are signed in using Expo CLI, skip this step. If you don't have an Expo account, [sign up here](https://expo.dev/signup) and proceed with the login command described below.
-
-To log in, run the following command:
-
-<Terminal cmd={['$ eas login']} />
-
-This command asks for our Expo account email or username and password to complete the login.
-
-### Initialize and link the project to EAS
-
-For any new project, the first step is to initialize and link it to the EAS servers. Run the following command:
-
-<Terminal cmd={['$ eas init']} />
-
-On running, this command:
-
-- Requests verification of the account owner by entering our Expo account credentials and asks if we want to create a new EAS project:
-
-<Terminal
-  cmd={[
-    '# Output after running eas init',
-    '✔ Which account should own this project? > your-username',
-    '✔ Would you like to create a project for @your-username/sticker-smash? … yes',
-    '✔ Created @your-username/sticker-smash',
-    '✔ Project successfully linked (ID: XXXX-XX-XX-XXXX) (modified app.json)',
-  ]}
-/>
-
-- Creates EAS project and provides a link to that project which we can open in the EAS dashboard:
-
-<ContentSpotlight
-  alt="New project in EAS dashboard"
-  src="/static/images/tutorial/eas/new-project.png"
-/>
-
-- Generates a unique `projectId` and links this EAS project to the example app on our development machine.
-- Modifies **app.json** to include [`extra.eas.projectId`](/versions/latest/sdk/constants/#easconfig) and updates its value with the unique ID created.
-
-<Collapsible summary={<>What is <CODE>projectId</CODE> in app.json?</>}>
-
-When `eas init` runs, it associates a unique identifier for our project in **app.json** under `extra.eas.projectId`. The value of this property is used to identify our project on EAS servers.
-
-```json
-{
-  "extra": {
-    "eas": {
-      "projectId": "0cd3da2d-xxx-xxx-xxx-xxxxxxxxxx"
-    }
-  }
+      <FlatList
+        data={data}
+        keyExtractor={(i) => i.id}
+        numColumns={2}
+        columnWrapperStyle={{ paddingHorizontal: 16, justifyContent: 'space-between' }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        renderItem={({ item }) => <Card v={item} />}
+        ListEmptyComponent={<Text style={{ textAlign: 'center', color: C.muted, marginTop: 40 }}>Nenhum veículo.</Text>}
+      />
+    </SafeAreaView>
+  );
 }
-```
-
-</Collapsible>
-
-</Step>
-
-<Step label="3">
-
-## Configure project for EAS Build
-
-To set up our project for EAS Build, run the following command:
-
-<Terminal cmd={['$ eas build:configure']} />
-
-On running, this command:
-
-- Prompts to select a platform: **Android**, **iOS**, or **All**. Since we are creating Android and iOS apps, let's select **All**.
-- Creates **eas.json** in the root of our project's directory with the following configuration:
-
-```json eas.json
-{
-  "cli": {
-    "version": ">= 16.18.0",
-    "appVersionSource": "remote"
-  },
-  "build": {
-    "development": {
-      "developmentClient": true,
-      "distribution": "internal"
-    },
-    "preview": {
-      "distribution": "internal"
-    },
-    "production": {
-      "autoIncrement": true
-    }
-  },
-  "submit": {
-    "production": {}
-  }
-}
-```
-
-This is the default configuration for **eas.json** in a new project. It does two things:
-
-- Defines the current EAS CLI version.
-- Adds three [build profiles](/build/eas-json/#build-profiles): `development`, `preview`, and `production`.
-
-</Step>
-
-<Collapsible summary="Explore development profile further">
-
-**eas.json** is a collection of different build profiles. Each profile is tailored with distinct configurations to produce specific build types. These profiles can also include platform-specific settings for Android or iOS.
-
-Currently, our focus is on the `development` profile, which includes the following configuration:
-
-- [`developmentClient`](/eas/json/#developmentclient): Enabled (`true`) for creating a debug build. It loads the app using the `expo-dev-client` library, which provides development tools and generates a build artifact for device or emulator/simulator installation and allows using the app for local development as it supports updating the JavaScript on the fly.
-- [`distribution`](/eas/json/#distribution): Configured as `internal` to indicate that we want to share the build internally (instead of uploading it on app stores).
-
-> **Note**: Builds offer extensive customization options, including platform-specific settings and the ability to extend configurations across different build profiles. Learn more about [customizing build profiles](/build/eas-json/#build-profiles).
-
-</Collapsible>
-
-## Summary
-
-<ProgressTracker
-  currentChapterIndex={0}
-  name="EAS_TUTORIAL"
-  summary="
-We successfully used the EAS CLI to initialize, and configure our project, link it to EAS servers, and prepare a development build."
-  nextChapterDescription="In the next chapter, let's create a development build for Android, install it on a device and an emulator, and get it running with the development server."
-  nextChapterTitle="Create and run a cloud build for Android"
-  nextChapterLink="/tutorial/eas/android-development-build/"
-/>
